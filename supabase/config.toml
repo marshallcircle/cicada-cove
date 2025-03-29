@@ -1,0 +1,41 @@
+[project]
+# Project name
+name = "cicada-cove"
+
+[api]
+# Port to use for the API URL
+port = 54321
+# Schemas to expose in your API
+schemas = ["public", "storage"]
+# Extra schemas to add to the search_path of every request
+extra_search_path = ["extensions"]
+# Set to true to enable JavaScript webhook support
+enable_javascript_webhooks = false
+
+[db]
+# Port to use for the local database URL
+port = 54322
+# The database major version to use (default is 15)
+major_version = 15
+
+[studio]
+# Port to use for Supabase Studio
+port = 54323
+
+[auth]
+# URL of the endpoint used by the API to verify email addresses and send password reset emails
+site_url = "http://localhost:3000"
+# Auth providers config: https://supabase.com/docs/guides/auth#providers
+additional_redirect_urls = ["https://localhost:3000"]
+# Email auth provider config
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+# JWT expiration times
+[auth.jwt]
+expiry = 3600  # 1 hour
+refresh_token_expiry = 604800  # 1 week
+
+[storage]
+file_size_limit = "50MiB"
