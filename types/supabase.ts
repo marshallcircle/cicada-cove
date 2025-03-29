@@ -18,9 +18,17 @@ export interface Database {
           description: string | null
           condition: string
           price: number
-          images: Json
-          measurements: Json | null
-          status: string
+          images: string[]
+          measurements: {
+            chest?: string
+            length?: string
+            shoulders?: string
+            sleeves?: string
+            waist?: string
+            hips?: string
+            [key: string]: string | undefined
+          } | null
+          status: 'active' | 'sold'
           slug: string
           created_at: string
           updated_at: string
@@ -33,9 +41,17 @@ export interface Database {
           description?: string | null
           condition: string
           price: number
-          images?: Json
-          measurements?: Json | null
-          status?: string
+          images?: string[]
+          measurements?: {
+            chest?: string
+            length?: string
+            shoulders?: string
+            sleeves?: string
+            waist?: string
+            hips?: string
+            [key: string]: string | undefined
+          } | null
+          status?: 'active' | 'sold'
           slug: string
           created_at?: string
           updated_at?: string
@@ -48,47 +64,80 @@ export interface Database {
           description?: string | null
           condition?: string
           price?: number
-          images?: Json
-          measurements?: Json | null
-          status?: string
+          images?: string[]
+          measurements?: {
+            chest?: string
+            length?: string
+            shoulders?: string
+            sleeves?: string
+            waist?: string
+            hips?: string
+            [key: string]: string | undefined
+          } | null
+          status?: 'active' | 'sold'
           slug?: string
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
       }
       orders: {
         Row: {
           id: string
           customer_email: string
-          shipping_address: Json
+          shipping_address: {
+            name: string
+            address1: string
+            address2?: string
+            city: string
+            state: string
+            postal_code: string
+            country: string
+            phone?: string
+          }
           total: number
           stripe_payment_id: string | null
-          status: string
+          status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled'
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           customer_email: string
-          shipping_address: Json
+          shipping_address: {
+            name: string
+            address1: string
+            address2?: string
+            city: string
+            state: string
+            postal_code: string
+            country: string
+            phone?: string
+          }
           total: number
           stripe_payment_id?: string | null
-          status?: string
+          status?: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled'
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           customer_email?: string
-          shipping_address?: Json
+          shipping_address?: {
+            name: string
+            address1: string
+            address2?: string
+            city: string
+            state: string
+            postal_code: string
+            country: string
+            phone?: string
+          }
           total?: number
           stripe_payment_id?: string | null
-          status?: string
+          status?: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled'
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
       }
       order_items: {
         Row: {
@@ -112,20 +161,6 @@ export interface Database {
           price?: number
           created_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_product_id_fkey"
-            columns: ["product_id"]
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
       }
     }
     Views: {
@@ -139,3 +174,16 @@ export interface Database {
     }
   }
 }
+
+// Convenience types for working with the database
+export type Product = Database['public']['Tables']['products']['Row']
+export type NewProduct = Database['public']['Tables']['products']['Insert']
+export type UpdateProduct = Database['public']['Tables']['products']['Update']
+
+export type Order = Database['public']['Tables']['orders']['Row']
+export type NewOrder = Database['public']['Tables']['orders']['Insert']
+export type UpdateOrder = Database['public']['Tables']['orders']['Update']
+
+export type OrderItem = Database['public']['Tables']['order_items']['Row']
+export type NewOrderItem = Database['public']['Tables']['order_items']['Insert']
+export type UpdateOrderItem = Database['public']['Tables']['order_items']['Update']
