@@ -1,0 +1,46 @@
+/* Custom Tailwind CSS utilities for Cicada Cove */
+
+@layer components {
+  /* Basic container class */
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Button styles */
+  .btn-primary {
+    @apply bg-cicada-black hover:bg-gray-800 text-cicada-white font-medium py-2 px-4 rounded focus:outline-none transition duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-cicada-white border border-cicada-black hover:bg-gray-100 text-cicada-black font-medium py-2 px-4 rounded focus:outline-none transition duration-200;
+  }
+  
+  .btn-accent {
+    @apply bg-cicada-red hover:bg-red-700 text-cicada-white font-medium py-2 px-4 rounded focus:outline-none transition duration-200;
+  }
+
+  /* Card styles */
+  .product-card {
+    @apply border border-gray-200 rounded-md overflow-hidden hover:shadow-md transition duration-200;
+  }
+  
+  .product-image {
+    @apply w-full h-64 object-cover object-center;
+  }
+  
+  .product-info {
+    @apply p-4;
+  }
+  
+  .product-title {
+    @apply text-lg font-medium mb-1;
+  }
+  
+  .product-designer {
+    @apply text-sm text-gray-500 mb-2;
+  }
+  
+  .product-price {
+    @apply text-lg font-bold;
+  }
+}
