@@ -19,6 +19,26 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Test function to verify Supabase connection
+export const testConnection = async (): Promise<{ success: boolean; message: string }> => {
+  try {
+    // Simple query to get system time from Supabase
+    const { data, error } = await supabase.from('products').select('id').limit(1);
+    
+    if (error) throw error;
+    return { 
+      success: true, 
+      message: 'Successfully connected to Supabase!' 
+    };
+  } catch (error) {
+    console.error('Supabase connection test failed:', error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Unknown error occurred' 
+    };
+  }
+};
+
 // Product related functions
 export const productService = {
   // Get all active products
