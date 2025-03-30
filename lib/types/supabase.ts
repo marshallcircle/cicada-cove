@@ -4,384 +4,115 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export interface Database {
   public: {
     Tables: {
       products: {
-        Row: {
-          id: string;
-          created_at: string;
-          title: string;
-          slug: string;
-          description: string;
-          price: number;
-          images: string[];
-          designer: string;
-          era: string;
-          condition: 'Excellent' | 'Very Good' | 'Good' | 'Fair';
-          materials: string[];
-          measurements: {
-            chest?: number;
-            waist?: number;
-            length?: number;
-            shoulders?: number;
-            sleeves?: number;
-          };
-          status: 'in_stock' | 'sold_out' | 'reserved';
-          featured: boolean;
-          updated_at: string;
-          category: string;
-          tags: string[];
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          title: string;
-          slug: string;
-          description: string;
-          price: number;
-          images: string[];
-          designer: string;
-          era: string;
-          condition: 'Excellent' | 'Very Good' | 'Good' | 'Fair';
-          materials: string[];
-          measurements?: {
-            chest?: number;
-            waist?: number;
-            length?: number;
-            shoulders?: number;
-            sleeves?: number;
-          };
-          status?: 'in_stock' | 'sold_out' | 'reserved';
-          featured?: boolean;
-          updated_at?: string;
-          category?: string;
-          tags?: string[];
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          title?: string;
-          slug?: string;
-          description?: string;
-          price?: number;
-          images?: string[];
-          designer?: string;
-          era?: string;
-          condition?: 'Excellent' | 'Very Good' | 'Good' | 'Fair';
-          materials?: string[];
-          measurements?: {
-            chest?: number;
-            waist?: number;
-            length?: number;
-            shoulders?: number;
-            sleeves?: number;
-          };
-          status?: 'in_stock' | 'sold_out' | 'reserved';
-          featured?: boolean;
-          updated_at?: string;
-          category?: string;
-          tags?: string[];
-        };
-        Relationships: [];
-      };
-      orders: {
-        Row: {
-          id: string;
-          created_at: string;
-          user_id: string;
-          status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
-          total: number;
-          shipping_address: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          };
-          billing_address: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          };
-          shipping_method: 'standard' | 'expedited' | 'overnight';
-          shipping_cost: number;
-          stripe_payment_intent_id?: string;
-          notes?: string;
-          updated_at: string;
-          items: {
-            product_id: string;
-            title: string;
-            price: number;
-            quantity: number;
-          }[];
-        };
-        Insert: {
-          id?: string;
-          created_at?: string;
-          user_id: string;
-          status?: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
-          total: number;
-          shipping_address: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          };
-          billing_address: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          };
-          shipping_method: 'standard' | 'expedited' | 'overnight';
-          shipping_cost: number;
-          stripe_payment_intent_id?: string;
-          notes?: string;
-          updated_at?: string;
-          items: {
-            product_id: string;
-            title: string;
-            price: number;
-            quantity: number;
-          }[];
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          user_id?: string;
-          status?: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
-          total?: number;
-          shipping_address?: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          };
-          billing_address?: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          };
-          shipping_method?: 'standard' | 'expedited' | 'overnight';
-          shipping_cost?: number;
-          stripe_payment_intent_id?: string;
-          notes?: string;
-          updated_at?: string;
-          items?: {
-            product_id: string;
-            title: string;
-            price: number;
-            quantity: number;
-          }[];
-        };
-        Relationships: [
-          {
-            foreignKeyName: "orders_user_id_fkey";
-            columns: ["user_id"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
+        Row: Product
+        Insert: Omit<Product, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Product, 'id' | 'created_at'>>
+      }
       profiles: {
-        Row: {
-          id: string;
-          created_at: string;
-          first_name: string | null;
-          last_name: string | null;
-          avatar_url: string | null;
-          phone: string | null;
-          updated_at: string;
-          email_preferences: {
-            marketing: boolean;
-            orders: boolean;
-            newsletter: boolean;
-          };
-          default_shipping_address: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          } | null;
-          default_billing_address: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          } | null;
-        };
-        Insert: {
-          id: string;
-          created_at?: string;
-          first_name?: string | null;
-          last_name?: string | null;
-          avatar_url?: string | null;
-          phone?: string | null;
-          updated_at?: string;
-          email_preferences?: {
-            marketing: boolean;
-            orders: boolean;
-            newsletter: boolean;
-          };
-          default_shipping_address?: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          } | null;
-          default_billing_address?: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          } | null;
-        };
-        Update: {
-          id?: string;
-          created_at?: string;
-          first_name?: string | null;
-          last_name?: string | null;
-          avatar_url?: string | null;
-          phone?: string | null;
-          updated_at?: string;
-          email_preferences?: {
-            marketing: boolean;
-            orders: boolean;
-            newsletter: boolean;
-          };
-          default_shipping_address?: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          } | null;
-          default_billing_address?: {
-            first_name: string;
-            last_name: string;
-            address1: string;
-            address2?: string;
-            city: string;
-            state: string;
-            postal_code: string;
-            country: string;
-            phone?: string;
-          } | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "profiles_id_fkey";
-            columns: ["id"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
-    };
+        Row: Profile
+        Insert: Omit<Profile, 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Profile, 'id' | 'created_at'>>
+      }
+      orders: {
+        Row: Order
+        Insert: Omit<Order, 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Order, 'id' | 'created_at'>>
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
+      order_status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'canceled' | 'failed'
+      product_condition: 'new' | 'excellent' | 'good' | 'fair' | 'poor'
+    }
+  }
 }
 
-// Type aliases for commonly used types
-export type Product = Database['public']['Tables']['products']['Row'];
-export type ProductInsert = Database['public']['Tables']['products']['Insert'];
-export type ProductUpdate = Database['public']['Tables']['products']['Update'];
+export interface Product {
+  id: string
+  name: string
+  slug: string
+  description: string
+  price: number
+  sale_price?: number | null
+  compare_at_price?: number | null
+  designer: string
+  era: string
+  condition: Database['public']['Enums']['product_condition']
+  category: string
+  images: string[]
+  featured: boolean
+  active: boolean
+  available_quantity: number
+  tags?: string[] | null
+  dimensions?: Json | null
+  materials?: string[] | null
+  care_instructions?: string | null
+  origin?: string | null
+  created_at: string
+  updated_at: string
+}
 
-export type Order = Database['public']['Tables']['orders']['Row'];
-export type OrderInsert = Database['public']['Tables']['orders']['Insert'];
-export type OrderUpdate = Database['public']['Tables']['orders']['Update'];
+export interface Profile {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  phone?: string | null
+  address?: {
+    address1?: string
+    address2?: string
+    city?: string
+    state?: string
+    postal_code?: string
+    country?: string
+  } | null
+  preferences?: {
+    marketing_emails?: boolean
+    order_updates?: boolean
+  } | null
+  created_at: string
+  updated_at: string
+}
 
-export type Profile = Database['public']['Tables']['profiles']['Row'];
-export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
-export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+export interface Order {
+  id: string
+  user_id?: string | null
+  customer_email: string
+  amount_total: number
+  line_items: Json[]
+  status: Database['public']['Enums']['order_status']
+  payment_intent?: string | null
+  stripe_session_id?: string | null
+  shipping_address?: Json | null
+  shipping_method: string
+  tracking_number?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
 
-// Simplified types for frontend use
-export type CartItem = {
-  id: string;
-  title: string;
-  price: number;
-  quantity: number;
-  image: string;
-  slug: string;
-};
+export interface OrderLineItem {
+  id: string
+  product_id: string
+  quantity: number
+  price: number
+  name: string
+  image?: string | null
+}
 
-export type Address = {
-  first_name: string;
-  last_name: string;
-  address1: string;
-  address2?: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
-  phone?: string;
-};
+export interface CartItem {
+  id: string
+  quantity: number
+  product: Product
+}
