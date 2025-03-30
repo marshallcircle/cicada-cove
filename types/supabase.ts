@@ -187,3 +187,35 @@ export type UpdateOrder = Database['public']['Tables']['orders']['Update']
 export type OrderItem = Database['public']['Tables']['order_items']['Row']
 export type NewOrderItem = Database['public']['Tables']['order_items']['Insert']
 export type UpdateOrderItem = Database['public']['Tables']['order_items']['Update']
+
+export interface Product {
+  id: string;
+  created_at?: string;
+  updated_at?: string;
+  title: string;
+  description?: string;
+  designer: string;
+  era: string;
+  condition: string;
+  price: number;
+  sale_price?: number | null;
+  status: 'active' | 'sold' | 'reserved' | 'hidden';
+  slug: string;
+  images: string[];
+  category_id?: string;
+  size?: string;
+  measurements?: Record<string, string>;
+  materials?: string[];
+  colors?: string[];
+  featured?: boolean;
+  keywords?: string[];
+  metadata?: Record<string, any>;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  parent_id?: string | null;
+}
