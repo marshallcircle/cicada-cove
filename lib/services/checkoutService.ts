@@ -1,148 +1,202 @@
-/**
- * Checkout Service
- * Handles checkout process and integration with Stripe
- */
+import { fetchApi } from '@/lib/utils/apiHelpers';
+import { Product } from '@/lib/types/supabase';
+import { z } from 'zod';
 
-import { CartItem, Address } from '@/lib/types/supabase';
+// Validation schemas
+export const addressSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  address1: z.string().min(1, 'Address line 1 is required'),
+  address2: z.string().optional(),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  postalCode: z.string().min(1, 'Postal code is required'),
+  country: z.string().min(1, 'Country is required'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().optional(),
+});
 
-export type ShippingMethod = 'standard' | 'expedited' | 'overnight';
+export type Address = z.infer<typeof addressSchema>;
+
+export interface CartItem {
+  id: string;
+  quantity: number;
+  product: Product;
+}
+
+export interface OrderSummary {
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  total: number;
+}
+
+export type ShippingMethod = 'standard' | 'express' | 'overnight' | 'free';
 
 export interface CheckoutData {
-  cartItems: CartItem[];
+  items: {
+    productId: string;
+    quantity: number;
+  }[];
   shippingAddress: Address;
+  billingAddressSame: boolean;
   billingAddress?: Address;
   shippingMethod: ShippingMethod;
-  shippingCost: number;
 }
 
-/**
- * Calculate shipping cost based on shipping method
- * @param method Shipping method
- * @param subtotal Cart subtotal
- * @returns Shipping cost in USD
- */
-export function calculateShippingCost(method: ShippingMethod, subtotal: number): number {
-  // Free standard shipping for orders over $500
-  if (method === 'standard' && subtotal >= 500) {
-    return 0;
-  }
-
-  switch (method) {
-    case 'standard':
-      return 15;
-    case 'expedited':
-      return 25;
-    case 'overnight':
-      return 45;
-    default:
-      return 15;
-  }
+export interface CheckoutResponse {
+  url: string;
 }
 
-/**
- * Creates a Stripe checkout session for the current cart
- * @param checkoutData Checkout data
- * @returns A URL to redirect the user to Stripe checkout
- */
-export async function createCheckoutSession(checkoutData: CheckoutData): Promise<string> {
-  try {
-    const response = await fetch('/api/stripe/create-checkout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(checkoutData),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create checkout session');
-    }
-
-    const { checkoutUrl } = await response.json();
-    
-    if (!checkoutUrl) {
-      throw new Error('No checkout URL returned from the server');
-    }
-
-    return checkoutUrl;
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    throw error;
-  }
-}
-
-/**
- * Calculate order summary for display in the checkout UI
- * @param cartItems Cart items
- * @param shippingMethod Shipping method
- * @returns Object with subtotal, shipping, tax, and total
- */
-export function calculateOrderSummary(cartItems: CartItem[], shippingMethod: ShippingMethod) {
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = calculateShippingCost(shippingMethod, subtotal);
-  
-  // Calculate estimated tax at 8% (this would be calculated more precisely with a tax API in production)
-  const estimatedTax = Math.round(subtotal * 0.08 * 100) / 100;
-  
-  const total = subtotal + shipping + estimatedTax;
-
-  return {
-    subtotal,
-    shipping,
-    tax: estimatedTax,
-    total,
-  };
-}
-
-/**
- * Validate checkout form data
- * @param data Form data
- * @returns Object with validation result and error message
- */
-export function validateCheckoutData(data: Partial<CheckoutData>): { valid: boolean; errors: Record<string, string> } {
-  const errors: Record<string, string> = {};
-
-  // Validate cart items
-  if (!data.cartItems || data.cartItems.length === 0) {
-    errors.cartItems = 'Your cart is empty';
-  }
-
-  // Validate shipping address
-  if (!data.shippingAddress) {
-    errors.shippingAddress = 'Shipping address is required';
-  } else {
-    const requiredFields: (keyof Address)[] = [
-      'first_name', 
-      'last_name', 
-      'address1', 
-      'city', 
-      'state', 
-      'postal_code', 
-      'country'
-    ];
-    
-    for (const field of requiredFields) {
-      if (!data.shippingAddress[field]) {
-        errors[`shippingAddress.${field}`] = `${field.replace('_', ' ')} is required`;
-      }
-    }
-  }
-
-  // Validate shipping method
-  if (!data.shippingMethod) {
-    errors.shippingMethod = 'Please select a shipping method';
-  }
-
-  return {
-    valid: Object.keys(errors).length === 0,
-    errors,
-  };
-}
-
-export default {
-  calculateShippingCost,
-  createCheckoutSession,
-  calculateOrderSummary,
-  validateCheckoutData,
+// Shipping rate constants
+const SHIPPING_RATES = {
+  standard: 10.00,
+  express: 25.00,
+  overnight: 50.00,
+  free: 0,
 };
+
+// Tax rate (example: 8.25%)
+const TAX_RATE = 0.0825;
+
+const checkoutService = {
+  /**
+   * Calculate shipping cost based on method
+   */
+  calculateShipping(method: ShippingMethod): number {
+    return SHIPPING_RATES[method] || 0;
+  },
+
+  /**
+   * Calculate tax for an order
+   */
+  calculateTax(subtotal: number): number {
+    return subtotal * TAX_RATE;
+  },
+
+  /**
+   * Calculate full order summary
+   */
+  calculateOrderSummary(
+    items: CartItem[],
+    shippingMethod: ShippingMethod
+  ): OrderSummary {
+    const subtotal = items.reduce(
+      (total, item) => total + item.product.price * item.quantity,
+      0
+    );
+    const shipping = this.calculateShipping(shippingMethod);
+    const tax = this.calculateTax(subtotal);
+    const total = subtotal + shipping + tax;
+
+    return {
+      subtotal,
+      shipping,
+      tax,
+      total,
+    };
+  },
+
+  /**
+   * Validate checkout data
+   */
+  validateCheckoutData(data: CheckoutData): { valid: boolean; errors?: Record<string, string[]> } {
+    try {
+      // Validate items
+      if (!data.items.length) {
+        return {
+          valid: false,
+          errors: { items: ['Cart cannot be empty'] },
+        };
+      }
+
+      // Validate shipping address
+      const shippingAddressResult = addressSchema.safeParse(data.shippingAddress);
+      if (!shippingAddressResult.success) {
+        return {
+          valid: false,
+          errors: shippingAddressResult.error.format(),
+        };
+      }
+
+      // Validate billing address if different
+      if (!data.billingAddressSame && data.billingAddress) {
+        const billingAddressResult = addressSchema.safeParse(data.billingAddress);
+        if (!billingAddressResult.success) {
+          return {
+            valid: false,
+            errors: billingAddressResult.error.format(),
+          };
+        }
+      }
+
+      // Validate shipping method
+      if (!['standard', 'express', 'overnight', 'free'].includes(data.shippingMethod)) {
+        return {
+          valid: false,
+          errors: { shippingMethod: ['Invalid shipping method'] },
+        };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      console.error('Validation error:', error);
+      return {
+        valid: false,
+        errors: { _errors: ['Validation failed'] },
+      };
+    }
+  },
+
+  /**
+   * Process checkout with Stripe
+   */
+  async createCheckoutSession(checkoutData: CheckoutData): Promise<CheckoutResponse> {
+    // Validate checkout data
+    const validation = this.validateCheckoutData(checkoutData);
+    if (!validation.valid) {
+      throw new Error(
+        `Invalid checkout data: ${JSON.stringify(validation.errors)}`
+      );
+    }
+
+    try {
+      // Send to API endpoint
+      const response = await fetchApi<CheckoutResponse>('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(checkoutData),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get order status by ID
+   */
+  async getOrderStatus(orderId: string): Promise<{ status: string }> {
+    return await fetchApi<{ status: string }>(`/api/orders/${orderId}/status`);
+  },
+
+  /**
+   * Get order details by ID
+   */
+  async getOrderDetails(orderId: string): Promise<any> {
+    return await fetchApi<any>(`/api/orders/${orderId}`);
+  },
+
+  /**
+   * Get order by Stripe session ID
+   */
+  async getOrderBySessionId(sessionId: string): Promise<any> {
+    return await fetchApi<any>(`/api/orders/session/${sessionId}`);
+  },
+};
+
+export default checkoutService;
