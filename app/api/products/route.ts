@@ -1,40 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { getServiceClient } from '@/lib/supabase/client';
-import { Product } from '@/lib/types/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/lib/types/supabase';
 
-/**
- * GET /api/products
- * Returns a list of products with optional filtering
- */
+// Initialize Supabase with service role for server-side operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
+
 export async function GET(request: NextRequest) {
   try {
     // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '12');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const searchParams = request.nextUrl.searchParams;
     const designer = searchParams.get('designer');
     const era = searchParams.get('era');
     const condition = searchParams.get('condition');
-    const minPrice = searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')!) : null;
-    const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : null;
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
     const category = searchParams.get('category');
-    const search = searchParams.get('search');
-    const featured = searchParams.get('featured') === 'true';
-    const status = searchParams.get('status') || 'in_stock';
-    const sortBy = searchParams.get('sortBy') || 'created_at';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const featured = searchParams.get('featured');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const offset = parseInt(searchParams.get('offset') || '0');
+    const sort = searchParams.get('sort') || 'created_at';
+    const order = searchParams.get('order') || 'desc';
 
-    // Initialize Supabase client
-    const cookieStore = cookies();
-    const supabase = await getServiceClient(cookieStore);
-
-    // Start building the query
+    // Initialize query
     let query = supabase
       .from('products')
-      .select('*', { count: 'exact' });
+      .select('*')
+      .eq('active', true);
 
-    // Apply filters
+    // Apply filters if they exist
     if (designer) {
       query = query.eq('designer', designer);
     }
@@ -47,154 +42,68 @@ export async function GET(request: NextRequest) {
       query = query.eq('condition', condition);
     }
 
-    if (minPrice !== null) {
-      query = query.gte('price', minPrice);
+    if (minPrice) {
+      query = query.gte('price', parseInt(minPrice));
     }
 
-    if (maxPrice !== null) {
-      query = query.lte('price', maxPrice);
+    if (maxPrice) {
+      query = query.lte('price', parseInt(maxPrice));
     }
 
     if (category) {
       query = query.eq('category', category);
     }
 
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
-    }
-
-    if (featured) {
+    if (featured === 'true') {
       query = query.eq('featured', true);
     }
 
-    // Apply status filter
-    if (status !== 'all') {
-      query = query.eq('status', status);
-    }
-
     // Apply sorting
-    if (sortBy && sortOrder) {
-      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+    if (
+      ['price', 'created_at', 'name', 'designer'].includes(sort) &&
+      ['asc', 'desc'].includes(order)
+    ) {
+      query = query.order(sort as any, { ascending: order === 'asc' });
+    } else {
+      query = query.order('created_at', { ascending: false });
     }
 
     // Apply pagination
     query = query.range(offset, offset + limit - 1);
 
-    // Execute the query
+    // Execute query
     const { data, error, count } = await query;
 
     if (error) {
       console.error('Error fetching products:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch products', details: error.message },
+        { error: 'Failed to fetch products' },
         { status: 500 }
       );
     }
 
-    // Return the products
+    // Get total count for pagination
+    const { count: totalCount, error: countError } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('active', true);
+
+    if (countError) {
+      console.error('Error counting products:', countError);
+    }
+
     return NextResponse.json({
       products: data,
-      total: count,
-      limit,
-      offset,
+      pagination: {
+        total: totalCount || 0,
+        offset,
+        limit,
+      },
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('Unhandled error in products API:', error);
     return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * POST /api/products
- * Creates a new product (admin only)
- */
-export async function POST(request: NextRequest) {
-  try {
-    // Initialize Supabase client
-    const cookieStore = cookies();
-    const supabase = await getServiceClient(cookieStore);
-
-    // Verify admin permissions (in a real app, you'd have more robust auth checks)
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Check admin status (this is a simplified check, would be more robust in a real app)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin privileges required' },
-        { status: 403 }
-      );
-    }
-
-    // Parse request body
-    const productData: Omit<Product, 'id' | 'created_at' | 'updated_at'> = await request.json();
-
-    // Validate required fields
-    const requiredFields = ['title', 'slug', 'description', 'price', 'images', 'designer', 'era', 'condition', 'materials'];
-    
-    for (const field of requiredFields) {
-      if (!productData[field as keyof typeof productData]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Check for duplicate slug
-    const { data: existingProduct } = await supabase
-      .from('products')
-      .select('id')
-      .eq('slug', productData.slug)
-      .maybeSingle();
-
-    if (existingProduct) {
-      return NextResponse.json(
-        { error: 'A product with this slug already exists' },
-        { status: 409 }
-      );
-    }
-
-    // Insert the new product
-    const { data, error } = await supabase
-      .from('products')
-      .insert({
-        ...productData,
-        status: productData.status || 'in_stock',
-        featured: productData.featured || false,
-        updated_at: new Date().toISOString(),
-      })
-      .select('*')
-      .single();
-
-    if (error) {
-      console.error('Error creating product:', error);
-      return NextResponse.json(
-        { error: 'Failed to create product', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(data, { status: 201 });
-  } catch (error) {
-    console.error('Unexpected error:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
