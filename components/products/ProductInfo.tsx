@@ -249,23 +249,26 @@ export const ProductInfo: React.FC<ProductInfoProps> = ({
             <p>
               Every item at Cicada Cove undergoes a rigorous authentication process. Our experts verify designer markings, craftsmanship, materials, and period-specific details.
             </p>
-            <p className="mt-2">
-              Each piece is photographed in detail to showcase its authentic characteristics and condition.
-            </p>
+            <div className="mt-4">
+              <h4 className="font-medium">Our guarantee</h4>
+              <p className="mt-1">
+                We guarantee the authenticity of all items. If you have any questions about this piece, please contact us.
+              </p>
+            </div>
           </div>
         </div>
       </ExpandableSection>
       
       {/* Shipping & Returns */}
       <ExpandableSection title="Shipping & Returns">
-        <div>
-          <h4 className="font-medium">Shipping</h4>
-          <p className="mt-1">Items ship within 1-2 business days. Delivery typically takes 3-5 business days domestically.</p>
-          
-          <h4 className="font-medium mt-4">Returns</h4>
-          <p className="mt-1">We accept returns within 14 days of delivery. Items must be in their original condition with tags attached.</p>
-          <p className="mt-2 text-sm text-gray-500">See our <a href="/policies/shipping" className="underline hover:text-gray-800">full shipping & returns policy</a>.</p>
-        </div>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>Free shipping on orders over $500</li>
+          <li>Standard shipping (3-5 business days)</li>
+          <li>Express shipping available at checkout</li>
+          <li>14-day return policy for unworn items</li>
+          <li>Returns must be in original condition with all tags</li>
+          <li>See our <span className="underline cursor-pointer">full policy</span> for details</li>
+        </ul>
       </ExpandableSection>
     </div>
   );
