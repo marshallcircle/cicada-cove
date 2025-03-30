@@ -6,14 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "setup-db": "node scripts/setup-database.js",
+    "test-supabase": "node scripts/test-supabase.js",
+    "verify-products": "node scripts/verify-products.js",
+    "create-tables": "node scripts/create-tables-direct.js"
   },
   "dependencies": {
-    "@supabase/auth-helpers-nextjs": "^0.8.7",
-    "@supabase/supabase-js": "^2.39.3",
+    "@heroicons/react": "^2.2.0",
+    "@supabase/supabase-js": "^2.49.4",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.4.7",
+    "framer-motion": "^12.6.2",
     "next": "14.1.4",
+    "pg": "^8.14.1",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-hot-toast": "^2.5.2",
+    "tailwind-merge": "^3.0.2"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -25,7 +35,6 @@
     "eslint-config-next": "14.1.4",
     "postcss": "^8.4.31",
     "postcss-preset-env": "^9.3.0",
-    "supabase": "^1.142.2",
     "tailwindcss": "^3.3.5",
     "typescript": "^5"
   }
