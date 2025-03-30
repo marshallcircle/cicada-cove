@@ -1,188 +1,294 @@
-/**
- * Authentication service
- * Handles user authentication, registration, and profile management
- */
-
-import supabase, { getCurrentUser, getSession } from '@/lib/supabase/client';
+import supabase from '@/lib/supabase/client';
+import { ApiError } from '@/lib/utils/apiHelpers';
 import { Profile } from '@/lib/types/supabase';
 
-/**
- * Login user with email and password
- */
-export async function loginWithEmail(email: string, password: string) {
-  const response = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to login');
-  }
-
-  return response.json();
+export interface AuthError {
+  message: string;
+  status?: number;
 }
 
-/**
- * Register a new user
- */
-export async function registerUser(
-  email: string, 
-  password: string, 
-  firstName?: string, 
-  lastName?: string
-) {
-  const response = await fetch('/api/auth/register', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ 
-      email, 
-      password,
-      firstName,
-      lastName
-    }),
-  });
+const authService = {
+  /**
+   * Login with email and password
+   */
+  async loginWithEmail(email: string, password: string) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to register');
-  }
+      if (error) {
+        return {
+          user: null,
+          error: {
+            message: error.message,
+            status: error.status,
+          },
+        };
+      }
 
-  return response.json();
-}
+      return { user: data.user, error: null };
+    } catch (error) {
+      console.error('Login error:', error);
+      return {
+        user: null,
+        error: {
+          message: error instanceof Error ? error.message : 'An unknown error occurred',
+          status: 500,
+        },
+      };
+    }
+  },
 
-/**
- * Logout the current user
- */
-export async function logout() {
-  const response = await fetch('/api/auth/logout', {
-    method: 'DELETE',
-  });
+  /**
+   * Register a new user
+   */
+  async registerUser(
+    email: string,
+    password: string,
+    firstName?: string,
+    lastName?: string
+  ) {
+    try {
+      // Create user account
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to logout');
-  }
+      if (error) {
+        return {
+          user: null,
+          error: {
+            message: error.message,
+            status: error.status,
+          },
+        };
+      }
 
-  return response.json();
-}
+      if (data.user) {
+        // Create user profile if first/last name provided
+        if (firstName || lastName) {
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: data.user.id,
+            email: email.toLowerCase(),
+            first_name: firstName || '',
+            last_name: lastName || '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
 
-/**
- * Send password reset email
- */
-export async function resetPassword(email: string) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
-  });
+          if (profileError) {
+            console.error('Error creating profile:', profileError);
+          }
+        }
+      }
 
-  if (error) {
-    throw new Error(error.message);
-  }
+      return { user: data.user, error: null };
+    } catch (error) {
+      console.error('Registration error:', error);
+      return {
+        user: null,
+        error: {
+          message: error instanceof Error ? error.message : 'An unknown error occurred',
+          status: 500,
+        },
+      };
+    }
+  },
 
-  return { success: true };
-}
+  /**
+   * Log out the current user
+   */
+  async logout() {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw new ApiError(error.message, error.status);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error instanceof ApiError 
+        ? error 
+        : new ApiError(
+            error instanceof Error ? error.message : 'An unknown error occurred',
+            500
+          );
+    }
+  },
 
-/**
- * Update user password
- */
-export async function updatePassword(password: string) {
-  const { error } = await supabase.auth.updateUser({
-    password,
-  });
+  /**
+   * Send password reset email
+   */
+  async resetPassword(email: string) {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+      });
 
-  if (error) {
-    throw new Error(error.message);
-  }
+      if (error) {
+        throw new ApiError(error.message, error.status);
+      }
 
-  return { success: true };
-}
+      return { success: true };
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw error instanceof ApiError 
+        ? error 
+        : new ApiError(
+            error instanceof Error ? error.message : 'An unknown error occurred',
+            500
+          );
+    }
+  },
 
-/**
- * Get the current user's profile
- */
-export async function getUserProfile(): Promise<Profile | null> {
-  const user = await getCurrentUser();
-  
-  if (!user) {
-    return null;
-  }
+  /**
+   * Update password for authenticated user
+   */
+  async updatePassword(password: string) {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password,
+      });
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
+      if (error) {
+        throw new ApiError(error.message, error.status);
+      }
 
-  if (error || !data) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
+      return { success: true };
+    } catch (error) {
+      console.error('Update password error:', error);
+      throw error instanceof ApiError 
+        ? error 
+        : new ApiError(
+            error instanceof Error ? error.message : 'An unknown error occurred',
+            500
+          );
+    }
+  },
 
-  return data;
-}
+  /**
+   * Get current session
+   */
+  async getSession() {
+    try {
+      const { data, error } = await supabase.auth.getSession();
 
-/**
- * Update the current user's profile
- */
-export async function updateUserProfile(updates: Partial<Profile>) {
-  const user = await getCurrentUser();
-  
-  if (!user) {
-    throw new Error('Not authenticated');
-  }
+      if (error) {
+        throw new ApiError(error.message, error.status);
+      }
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', user.id)
-    .select('*')
-    .single();
+      return data.session;
+    } catch (error) {
+      console.error('Get session error:', error);
+      throw error instanceof ApiError 
+        ? error 
+        : new ApiError(
+            error instanceof Error ? error.message : 'An unknown error occurred',
+            500
+          );
+    }
+  },
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  /**
+   * Get current user
+   */
+  async getCurrentUser() {
+    try {
+      const { data, error } = await supabase.auth.getUser();
 
-  return data;
-}
+      if (error) {
+        throw new ApiError(error.message, error.status);
+      }
 
-/**
- * Check if user is authenticated
- */
-export async function isAuthenticated(): Promise<boolean> {
-  const session = await getSession();
-  return !!session;
-}
+      return data.user;
+    } catch (error) {
+      console.error('Get user error:', error);
+      throw error instanceof ApiError 
+        ? error 
+        : new ApiError(
+            error instanceof Error ? error.message : 'An unknown error occurred',
+            500
+          );
+    }
+  },
 
-/**
- * Get authentication state for client components
- * Used for UI purposes to determine logged in state
- */
-export function useAuthState() {
-  // We could implement React hooks here if needed
-  // For now, just return the async functions
-  return {
-    isAuthenticated,
-    getCurrentUser,
-    getUserProfile,
-  };
-}
+  /**
+   * Get user profile
+   */
+  async getUserProfile() {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      
+      if (!user.user) {
+        throw new ApiError('User not authenticated', 401);
+      }
 
-export default {
-  loginWithEmail,
-  registerUser,
-  logout,
-  resetPassword,
-  updatePassword,
-  getUserProfile,
-  updateUserProfile,
-  isAuthenticated,
-  useAuthState,
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.user.id)
+        .single();
+
+      if (error) {
+        throw new ApiError(error.message, error.status || 500);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Get profile error:', error);
+      throw error instanceof ApiError 
+        ? error 
+        : new ApiError(
+            error instanceof Error ? error.message : 'An unknown error occurred',
+            500
+          );
+    }
+  },
+
+  /**
+   * Update user profile
+   */
+  async updateUserProfile(updates: Partial<Profile>) {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      
+      if (!user.user) {
+        throw new ApiError('User not authenticated', 401);
+      }
+      
+      // Remove any fields that shouldn't be updated directly
+      const { id, email, created_at, ...updateData } = updates;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.user.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new ApiError(error.message, error.status || 500);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error instanceof ApiError 
+        ? error 
+        : new ApiError(
+            error instanceof Error ? error.message : 'An unknown error occurred',
+            500
+          );
+    }
+  },
 };
+
+export default authService;
