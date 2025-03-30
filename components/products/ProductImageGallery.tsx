@@ -253,34 +253,45 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             {condition}
           </span>
         </div>
+        
+        {/* Image count indicator */}
+        {displayImages.length > 1 && (
+          <div className="absolute right-3 top-3 z-10">
+            <span className="rounded bg-white/90 px-2 py-1 text-xs font-medium text-gray-900 shadow-sm">
+              {activeIndex + 1} / {displayImages.length}
+            </span>
+          </div>
+        )}
       </div>
-      
+
       {/* Thumbnails */}
       {displayImages.length > 1 && (
-        <div ref={thumbnailsRef} className="flex overflow-x-auto space-x-2 pb-2">
+        <div 
+          ref={thumbnailsRef} 
+          className="flex space-x-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+        >
           {displayImages.map((image, index) => (
             <button
               key={index}
-              onClick={() => navigateTo(index)}
+              onClick={() => setActiveIndex(index)}
               className={cn(
-                "relative flex-shrink-0 w-20 h-20 border-2 rounded overflow-hidden focus:outline-none",
-                activeIndex === index ? "border-black" : "border-transparent hover:border-gray-300"
+                "relative flex-shrink-0 h-16 w-16 border-2 rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-black",
+                index === activeIndex ? "border-black" : "border-transparent hover:border-gray-300"
               )}
-              aria-label={`View image ${index + 1} of ${displayImages.length}`}
-              aria-current={activeIndex === index ? "true" : "false"}
+              aria-label={`View image ${index + 1}`}
             >
               <Image
                 src={image}
                 alt={`Thumbnail ${index + 1}`}
                 fill
-                sizes="80px"
+                sizes="64px"
                 className="object-cover"
               />
             </button>
           ))}
         </div>
       )}
-      
+
       {/* Lightbox */}
       <AnimatePresence>
         {lightboxOpen && (
@@ -288,78 +299,94 @@ export const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center"
-            onClick={closeLightbox}
+            className="fixed inset-0 z-50 flex flex-col bg-black bg-opacity-95"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
           >
-            {/* Close button */}
-            <button
-              onClick={closeLightbox}
-              className="absolute top-4 right-4 z-10 p-2 text-white hover:text-gray-200 focus:outline-none"
-              aria-label="Close lightbox"
-            >
-              <CloseIcon />
-            </button>
-
-            {/* Image container */}
-            <div
-              className="relative w-full h-full max-w-4xl max-h-screen flex items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <motion.div
-                key={`lightbox-${lightboxIndex}`}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-                className="relative w-full h-full flex items-center justify-center p-4 sm:p-10"
+            {/* Lightbox header */}
+            <div className="flex justify-between items-center p-4 text-white border-b border-white/20">
+              <div>
+                <h3 className="text-lg font-medium">{productName}</h3>
+                <p className="text-sm text-gray-300">{designer}</p>
+              </div>
+              <button
+                onClick={closeLightbox}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                aria-label="Close lightbox"
               >
-                <div className="relative w-full max-w-full max-h-full">
+                <CloseIcon />
+              </button>
+            </div>
+            
+            {/* Lightbox content */}
+            <div className="flex-1 flex items-center justify-center p-4 relative">
+              <AnimatePresence initial={false} mode="wait">
+                <motion.div
+                  key={lightboxIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="relative w-full h-full max-w-4xl max-h-full flex items-center justify-center"
+                >
                   <Image
                     src={displayImages[lightboxIndex]}
-                    alt={`${designer} - ${productName} - Image ${lightboxIndex + 1}`}
-                    width={1200}
-                    height={1200}
+                    alt={`${designer} - ${productName} - Full size`}
+                    fill
+                    priority
+                    sizes="100vw"
+                    className="object-contain"
                     quality={95}
-                    className="object-contain w-auto h-auto max-h-[80vh] mx-auto"
                   />
-                </div>
-              </motion.div>
+                </motion.div>
+              </AnimatePresence>
               
-              {/* Navigation buttons */}
+              {/* Lightbox navigation */}
               {displayImages.length > 1 && (
                 <>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigateInLightbox(lightboxIndex - 1);
-                    }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 focus:outline-none"
+                    onClick={() => navigateInLightbox(lightboxIndex - 1)}
+                    className="absolute left-4 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
                     aria-label="Previous image"
                   >
                     <ChevronLeftIcon />
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigateInLightbox(lightboxIndex + 1);
-                    }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 focus:outline-none"
+                    onClick={() => navigateInLightbox(lightboxIndex + 1)}
+                    className="absolute right-4 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
                     aria-label="Next image"
                   >
                     <ChevronRightIcon />
                   </button>
                 </>
               )}
-              
-              {/* Image counter */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 rounded-full px-4 py-1 text-white text-sm">
-                {lightboxIndex + 1} / {displayImages.length}
-              </div>
             </div>
+            
+            {/* Lightbox footer with thumbnails */}
+            {displayImages.length > 1 && (
+              <div className="p-4 flex justify-center space-x-2 overflow-x-auto bg-black/60">
+                {displayImages.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => navigateInLightbox(index)}
+                    className={cn(
+                      "relative h-16 w-16 border-2 rounded overflow-hidden",
+                      index === lightboxIndex ? "border-white" : "border-transparent hover:border-gray-500"
+                    )}
+                    aria-label={`View image ${index + 1}`}
+                  >
+                    <Image
+                      src={image}
+                      alt={`Thumbnail ${index + 1}`}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
