@@ -1,97 +1,100 @@
 /**
- * API utility functions for making requests and handling errors
+ * API utility functions and error handling
  */
 
-interface ApiErrorResponse {
+export interface ApiErrorResponse {
   error: string;
-  details?: string;
-  status?: number;
+  details?: Record<string, any>;
 }
 
-interface ApiOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  body?: any;
-  headers?: Record<string, string>;
-  credentials?: RequestCredentials;
-  cache?: RequestCache;
+export interface ApiOptions extends RequestInit {
+  timeout?: number;
 }
 
 /**
- * Standardized API fetcher with error handling
- * @param url API URL to fetch
- * @param options Request options
- * @returns JSON response data
- * @throws ApiError if the request fails
+ * Fetch API with error handling and type safety
  */
-export async function fetchApi<T>(url: string, options?: ApiOptions): Promise<T> {
-  const defaultOptions: ApiOptions = {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-  };
-
-  const fetchOptions: RequestInit = {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options?.headers,
-    },
-  };
-
-  // Convert body to JSON string if it's an object
-  if (fetchOptions.body && typeof fetchOptions.body === 'object') {
-    fetchOptions.body = JSON.stringify(fetchOptions.body);
-  }
+export async function fetchApi<T>(
+  url: string,
+  options: ApiOptions = {}
+): Promise<T> {
+  const { timeout = 10000, ...fetchOptions } = options;
 
   try {
-    const response = await fetch(url, fetchOptions);
-
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType?.includes('application/json');
-    
-    // Handle different response types
-    const data = isJson ? await response.json() : await response.text();
-
-    // If the response is not ok, throw an error
-    if (!response.ok) {
-      const errorMessage = isJson && 'error' in data 
-        ? data.error 
-        : 'An unexpected error occurred';
-      
-      const error = new ApiError(
-        errorMessage,
-        response.status,
-        isJson ? data.details : undefined
-      );
-      throw error;
+    // Add default headers if none provided
+    if (!fetchOptions.headers) {
+      fetchOptions.headers = {
+        'Content-Type': 'application/json',
+      };
     }
 
-    return data as T;
+    // Create an AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    // Make the request
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+    });
+
+    // Clear timeout
+    clearTimeout(timeoutId);
+
+    // Check if the response is successful
+    if (!response.ok) {
+      let errorData: ApiErrorResponse;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = {
+          error: `Request failed with status ${response.status}`,
+        };
+      }
+
+      throw new ApiError(
+        errorData.error || `Request failed with status ${response.status}`,
+        response.status,
+        errorData.details
+      );
+    }
+
+    // Check if the response is empty
+    const contentType = response.headers.get('content-type');
+    if (
+      contentType &&
+      contentType.includes('application/json') &&
+      response.status !== 204
+    ) {
+      const data = await response.json();
+      return data as T;
+    }
+
+    return {} as T;
   } catch (error) {
-    // If it's already an ApiError, rethrow it
     if (error instanceof ApiError) {
       throw error;
     }
 
-    // Otherwise, wrap it in an ApiError
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError('Request timeout', 408);
+    }
+
     throw new ApiError(
-      error instanceof Error ? error.message : 'Network request failed',
+      error instanceof Error ? error.message : 'Unknown error',
       500
     );
   }
 }
 
 /**
- * Custom error class for API errors
+ * Custom API Error class
  */
 export class ApiError extends Error {
   status: number;
-  details?: string;
-  
-  constructor(message: string, status: number = 500, details?: string) {
+  details?: Record<string, any>;
+
+  constructor(message: string, status: number = 500, details?: Record<string, any>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -100,98 +103,91 @@ export class ApiError extends Error {
 }
 
 /**
- * Parse URL search params into a filter object
- * @param searchParams URLSearchParams object
- * @returns Object with filter parameters
+ * Parse search parameters from URL
  */
-export function parseSearchParams(searchParams: URLSearchParams): Record<string, string | number | boolean> {
-  const filters: Record<string, string | number | boolean> = {};
-  
+export function parseSearchParams(
+  searchParams: URLSearchParams
+): Record<string, string | number | boolean> {
+  const params: Record<string, string | number | boolean> = {};
+
   searchParams.forEach((value, key) => {
-    // Parse numbers
-    if (!isNaN(Number(value))) {
-      filters[key] = Number(value);
-    }
-    // Parse booleans
-    else if (value === 'true' || value === 'false') {
-      filters[key] = value === 'true';
-    }
-    // Keep strings as-is
-    else {
-      filters[key] = value;
+    // Convert to appropriate type
+    if (value === 'true') {
+      params[key] = true;
+    } else if (value === 'false') {
+      params[key] = false;
+    } else if (!isNaN(Number(value)) && value.trim() !== '') {
+      params[key] = Number(value);
+    } else {
+      params[key] = value;
     }
   });
-  
-  return filters;
+
+  return params;
 }
 
 /**
- * Build URL search params from a filter object
- * @param filters Object with filter parameters
- * @returns Formatted search params string
+ * Build URL search parameters from object
  */
-export function buildSearchParams(filters: Record<string, any>): string {
-  const params = new URLSearchParams();
-  
-  Object.entries(filters).forEach(([key, value]) => {
+export function buildSearchParams(
+  params: Record<string, string | number | boolean | undefined>
+): URLSearchParams {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
-      params.append(key, String(value));
+      searchParams.append(key, String(value));
     }
   });
-  
-  const paramString = params.toString();
-  return paramString ? `?${paramString}` : '';
+
+  return searchParams;
 }
 
 /**
- * Handle API errors in a standardized way
- * @param error Error object
- * @returns Standardized error message and status
+ * Handle API errors with user-friendly messages
  */
-export function handleApiError(error: unknown): ApiErrorResponse {
+export function handleApiError(error: unknown): string {
   if (error instanceof ApiError) {
-    return {
-      error: error.message,
-      details: error.details,
-      status: error.status,
-    };
+    // Return user-friendly message based on status code
+    switch (error.status) {
+      case 401:
+        return 'You need to be logged in to perform this action';
+      case 403:
+        return 'You do not have permission to perform this action';
+      case 404:
+        return 'The requested resource was not found';
+      case 422:
+        return 'The provided data is invalid';
+      case 429:
+        return 'Too many requests, please try again later';
+      default:
+        return error.message || 'An unexpected error occurred';
+    }
   }
-  
-  if (error instanceof Error) {
-    return {
-      error: error.message,
-      status: 500,
-    };
-  }
-  
-  return {
-    error: 'An unexpected error occurred',
-    status: 500,
-  };
+
+  return error instanceof Error
+    ? error.message
+    : 'An unexpected error occurred';
 }
 
 /**
- * Get client-side environment variable with validation
- * @param key Environment variable key
- * @param fallback Optional fallback value
- * @returns Environment variable value
+ * Get environment variable with proper error handling
+ * Only for client-side use of public env vars
  */
 export function getEnv(key: string, fallback?: string): string {
-  // Only client-side environment variables should be accessed
-  const value = process.env[`NEXT_PUBLIC_${key}`] || fallback;
+  const value = process.env[`NEXT_PUBLIC_${key}`];
   
   if (!value) {
-    console.warn(`Environment variable NEXT_PUBLIC_${key} is not defined`);
+    if (fallback !== undefined) {
+      return fallback;
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`Environment variable NEXT_PUBLIC_${key} is not set`);
+    }
+    
+    throw new Error(`Environment variable NEXT_PUBLIC_${key} is not set`);
   }
   
-  return value || '';
+  return value;
 }
-
-export default {
-  fetchApi,
-  ApiError,
-  parseSearchParams,
-  buildSearchParams,
-  handleApiError,
-  getEnv,
-};
